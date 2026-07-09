@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html lang="fr" translate="no">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="google" content="notranslate">
+<title>Chez Djamil — Gestion d'Atelier</title>
+<meta name="theme-color" content="#0D9488">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+<style>
+:root{
+  --teal:#0D9488;
+  --teal-deep:#0F766E;
+  --teal-soft:#CCFBF1;
+  --orange:#F97316;
+  --orange-soft:#FFEDD5;
+  --creme:#F7F5F0;
+  --carte:#FFFFFF;
+  --encre:#1C2B2A;
+  --encre-doux:#5C6B6A;
+  --ligne:#E4E1D8;
+  --rouge:#DC2626;
+  --rouge-soft:#FEE2E2;
+  --vert:#16A34A;
+  --vert-soft:#DCFCE7;
+  --radius:14px;
+  --ombre:0 1px 3px rgba(28,43,42,.08), 0 4px 14px rgba(28,43,42,.06);
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{
+  font-family:'Inter',system-ui,sans-serif;
+  background:var(--creme);
+  color:var(--encre);
+  font-size:15px;
+  line-height:1.5;
+  min-height:100vh;
+}
+h1,h2,h3,.brand{font-family:'Fraunces',Georgia,serif}
+.hidden{display:none !important}
+
+/* ===== Bande signature "mètre ruban" ===== */
+.tape{
+  height:8px;
+  background:
+    repeating-linear-gradient(90deg,
+      var(--teal) 0 2px, transparent 2px 12px),
+    linear-gradient(90deg, var(--orange-soft), var(--teal-soft));
+  border-bottom:1px solid var(--ligne);
+}
+
+/* ===== Écrans plein-page (auth / setup / bloqué) ===== */
+.fullpage{
+  min-height:100vh;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  padding:24px 16px 48px;
+}
+.brand{
+  font-size:34px;
+  font-weight:700;
+  color:var(--teal-deep);
+  letter-spacing:-.5px;
+}
+.brand small{
+  display:block;
+  font-family:'Inter',sans-serif;
+  font-size:12px;
+  font-weight:600;
+  letter-spacing:2.5px;
+  text-transform:uppercase;
+  color:var(--orange);
+  margin-top:2px;
+}
+.carte{
+  background:var(--carte);
+  border:1px solid var(--ligne);
+  border-radius:var(--radius);
+  box-shadow:var(--ombre);
+  padding:22px 18px;
+  width:100%;
+  max-width:440px;
+}
+.fullpage .carte{margin-top:22px}
+
+/* ===== Formulaires ===== */
+label{display:block;font-size:13px;font-weight:600;color:var(--encre-doux);margin:12px 0 4px}
+input,select,textarea{
+  width:100%;
+  padding:12px 14px;
+  border:1.5px solid var(--ligne);
+  border-radius:10px;
+  font-size:15px;
+  font-family:inherit;
+  background:#FDFCFA;
+  color:var(--encre);
+}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--teal);outline-offset:1px;border-color:var(--teal)}
+.btn{
+  display:block;
+  width:100%;
+  padding:13px;
+  border:none;
+  border-radius:10px;
+  font-size:15px;
+  font-weight:600;
+  font-family:inherit;
+  cursor:pointer;
+  margin-top:14px;
+  text-align:center;
+  text-decoration:none;
+}
+.btn-teal{background:var(--teal);color:#fff}
+.btn-teal:active{background:var(--teal-deep)}
+.btn-orange{background:var(--orange);color:#fff}
+.btn-ghost{background:transparent;color:var(--teal-deep);border:1.5px solid var(--teal)}
+.btn-wa{background:#16A34A;color:#fff}
+.btn-mini{
+  width:auto;display:inline-block;padding:8px 14px;font-size:13px;margin:6px 6px 0 0;
+}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+
+.tabs-auth{display:flex;border:1.5px solid var(--ligne);border-radius:10px;overflow:hidden;margin-bottom:6px}
+.tabs-auth button{
+  flex:1;padding:11px;border:none;background:#FDFCFA;font-weight:600;font-size:14px;color:var(--encre-doux);cursor:pointer;font-family:inherit;
+}
+.tabs-auth button.actif{background:var(--teal);color:#fff}
+
+.msg-erreur{background:var(--rouge-soft);color:var(--rouge);border-radius:8px;padding:10px 12px;font-size:13px;margin-top:12px}
+.msg-ok{background:var(--vert-soft);color:var(--vert);border-radius:8px;padding:10px 12px;font-size:13px;margin-top:12px}
+
+/* ===== Header app ===== */
+header.app{
+  background:var(--carte);
+  border-bottom:1px solid var(--ligne);
+  padding:12px 16px 0;
+  position:sticky;top:0;z-index:50;
+}
+.header-haut{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.header-haut .brand{font-size:21px}
+.badge-essai{
+  font-size:11.5px;font-weight:600;
+  background:var(--orange-soft);color:#C2410C;
+  padding:4px 10px;border-radius:99px;white-space:nowrap;
+}
+.badge-actif{background:var(--vert-soft);color:var(--vert)}
+.header-actions{display:flex;align-items:center;gap:8px}
+.lang-switch{
+  display:flex;border:1.5px solid var(--ligne);border-radius:99px;overflow:hidden;
+}
+.lang-switch button{
+  border:none;background:transparent;padding:5px 11px;font-size:12px;font-weight:700;cursor:pointer;color:var(--encre-doux);font-family:inherit;
+}
+.lang-switch button.actif{background:var(--teal);color:#fff}
+.btn-sortir{border:none;background:transparent;color:var(--encre-doux);font-size:12.5px;font-weight:600;cursor:pointer;padding:6px;font-family:inherit;text-decoration:underline}
+
+nav.ongles{display:flex;gap:2px;margin-top:10px;overflow-x:auto}
+nav.ongles button{
+  border:none;background:transparent;padding:10px 14px;font-size:14px;font-weight:600;color:var(--encre-doux);cursor:pointer;font-family:inherit;border-bottom:3px solid transparent;white-space:nowrap;
+}
+nav.ongles button.actif{color:var(--teal-deep);border-bottom-color:var(--orange)}
+
+main{padding:16px;max-width:760px;margin:0 auto;padding-bottom:70px}
+.section-titre{font-size:19px;margin:18px 0 10px;color:var(--teal-deep)}
+.grille-stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.stat{
+  background:var(--carte);border:1px solid var(--ligne);border-radius:var(--radius);padding:16px;text-align:center;box-shadow:var(--ombre);
+}
+.stat .num{font-family:'Fraunces',serif;font-size:30px;font-weight:700;color:var(--teal-deep)}
+.stat .lbl{font-size:11.5px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--encre-doux);margin-top:2px}
+
+.alerte-livraison{
+  background:var(--rouge-soft);border:1px solid #FCA5A5;border-radius:var(--radius);padding:14px 16px;margin-top:14px;
+}
+.alerte-livraison h3{color:var(--rouge);font-size:16px;margin-bottom:6px}
+.alerte-livraison div{font-size:13.5px;color:#7F1D1D;margin-top:3px}
+
+.item{
+  background:var(--carte);border:1px solid var(--ligne);border-radius:var(--radius);padding:14px 16px;margin-top:10px;box-shadow:var(--ombre);
+}
+.item .ligne1{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.item .nom{font-weight:700;font-size:15.5px}
+.item .code{font-size:12px;font-weight:700;color:var(--orange);background:var(--orange-soft);padding:2px 9px;border-radius:99px;white-space:nowrap}
+.item .detail{font-size:13.5px;color:var(--encre-doux);margin-top:4px}
+.item .prix-ligne{font-size:13.5px;margin-top:6px}
+.item .reste{color:var(--rouge);font-weight:600}
+.statut{
+  display:inline-block;font-size:12px;font-weight:700;padding:3px 11px;border-radius:99px;margin-top:8px;
+}
+.st-attente{background:#FEF9C3;color:#A16207}
+.st-cours{background:var(--teal-soft);color:var(--teal-deep)}
+.st-pret{background:var(--orange-soft);color:#C2410C}
+.st-livre{background:var(--vert-soft);color:var(--vert)}
+
+.vide{
+  text-align:center;color:var(--encre-doux);padding:34px 16px;font-size:14px;
+  border:1.5px dashed var(--ligne);border-radius:var(--radius);margin-top:12px;background:#FBFAF7;
+}
+
+/* ===== Modale ===== */
+.voile{
+  position:fixed;inset:0;background:rgba(28,43,42,.5);z-index:100;
+  display:flex;align-items:flex-end;justify-content:center;
+}
+.modale{
+  background:var(--carte);border-radius:18px 18px 0 0;padding:20px 18px 30px;width:100%;max-width:560px;max-height:88vh;overflow-y:auto;
+}
+.modale h3{color:var(--teal-deep);font-size:19px;margin-bottom:4px}
+@media(min-width:600px){
+  .voile{align-items:center}
+  .modale{border-radius:18px}
+}
+
+/* ===== Écran bloqué / paiement ===== */
+.prix-carte{
+  border:2px solid var(--teal);border-radius:var(--radius);padding:18px;text-align:center;margin-top:16px;background:var(--teal-soft);
+}
+.prix-carte .gros{font-family:'Fraunces',serif;font-size:36px;font-weight:700;color:var(--teal-deep)}
+.prix-carte .par{font-size:13px;color:var(--encre-doux)}
+
+/* ===== Admin ===== */
+.admin-bandeau{background:var(--encre);color:#fff;padding:8px 16px;font-size:12.5px;font-weight:600;letter-spacing:1px;text-transform:uppercase}
+.tableau-admin{width:100%;border-collapse:collapse;margin-top:12px;background:var(--carte);border-radius:var(--radius);overflow:hidden;box-shadow:var(--ombre)}
+.tableau-admin th,.tableau-admin td{padding:10px 12px;text-align:left;font-size:13px;border-bottom:1px solid var(--ligne)}
+.tableau-admin th{background:#FBFAF7;font-weight:700;color:var(--encre-doux);font-size:11.5px;text-transform:uppercase;letter-spacing:.5px}
+
+footer.pied{
+  text-align:center;font-size:12px;color:var(--encre-doux);padding:20px 16px 30px;
+}
+@media (prefers-reduced-motion: reduce){
+  *{animation:none !important;transition:none !important}
+}
+</style>
+</head>
+<body>
+
+<div class="tape"></div>
+
+<!-- ============ ÉCRAN SETUP (config Firebase manquante) ============ -->
+<div id="screenSetup" class="fullpage hidden">
+  <div class="brand">Chez Djamil<small>Atelier SaaS</small></div>
+  <div class="carte">
+    <h2 style="color:var(--teal-deep);margin-bottom:8px">⚙️ Configuration requise</h2>
+    <p style="font-size:14px;color:var(--encre-doux)">
+      L'application n'est pas encore connectée à Firebase.<br><br>
+      1. Crée un projet sur <b>console.firebase.google.com</b><br>
+      2. Active <b>Authentication → Email/Password</b><br>
+      3. Active <b>Firestore Database</b><br>
+      4. Copie la config du projet et colle-la dans le fichier <b>index.html</b> à l'endroit marqué <b>FIREBASE_CONFIG</b><br><br>
+      Ensuite recharge cette page. 🚀
+    </p>
+  </div>
+</div>
+
+<!-- ============ ÉCRAN AUTH ============ -->
+<div id="screenAuth" class="fullpage hidden">
+  <div class="brand">Chez Djamil<small data-i18n="slogan">Gestion d'atelier de couture</small></div>
+  <div class="carte">
+    <div class="tabs-auth">
+      <button id="tabLogin" class="actif" data-i18n="connexion">Connexion</button>
+      <button id="tabSignup" data-i18n="creerCompte">Créer mon atelier</button>
+    </div>
+
+    <!-- Connexion -->
+    <div id="formLogin">
+      <label data-i18n="email">Email</label>
+      <input type="email" id="loginEmail" autocomplete="email" placeholder="vous@exemple.com">
+      <label data-i18n="mdp">Mot de passe</label>
+      <input type="password" id="loginPass" autocomplete="current-password" placeholder="••••••••">
+      <button class="btn btn-teal" id="btnLogin" data-i18n="seConnecter">Se connecter</button>
+      <button class="btn-sortir" id="btnOubli" style="width:100%;margin-top:10px" data-i18n="mdpOublie">Mot de passe oublié ?</button>
+    </div>
+
+    <!-- Inscription -->
+    <div id="formSignup" class="hidden">
+      <label data-i18n="nomAtelier">Nom de votre atelier</label>
+      <input type="text" id="suNom" placeholder="Atelier Fatou Couture">
+      <label data-i18n="pays">Pays</label>
+      <select id="suPays">
+        <option value="220|GMD">Gambie (+220, Dalasi)</option>
+        <option value="221|FCFA">Sénégal (+221, FCFA)</option>
+        <option value="225|FCFA">Côte d'Ivoire (+225, FCFA)</option>
+        <option value="223|FCFA">Mali (+223, FCFA)</option>
+        <option value="224|GNF">Guinée (+224, GNF)</option>
+        <option value="226|FCFA">Burkina Faso (+226, FCFA)</option>
+        <option value="228|FCFA">Togo (+228, FCFA)</option>
+        <option value="229|FCFA">Bénin (+229, FCFA)</option>
+        <option value="237|FCFA">Cameroun (+237, FCFA)</option>
+        <option value="233|GHS">Ghana (+233, Cedi)</option>
+        <option value="234|NGN">Nigeria (+234, Naira)</option>
+        <option value="212|MAD">Maroc (+212, Dirham)</option>
+        <option value="33|EUR">France (+33, Euro)</option>
+        <option value="44|GBP">Royaume-Uni (+44, Livre)</option>
+        <option value="1|USD">USA / Canada (+1, Dollar)</option>
+        <option value="autre|">Autre pays…</option>
+      </select>
+      <div id="zoneAutrePays" class="hidden">
+        <label data-i18n="indicatif">Indicatif téléphonique (sans +)</label>
+        <input type="text" id="suIndicatif" inputmode="numeric" placeholder="220">
+        <label data-i18n="devise">Devise</label>
+        <input type="text" id="suDevise" placeholder="D, FCFA, €…">
+      </div>
+      <label data-i18n="tel">Votre numéro WhatsApp (sans indicatif)</label>
+      <input type="tel" id="suTel" inputmode="numeric" placeholder="7XXXXXX">
+      <label data-i18n="email">Email</label>
+      <input type="email" id="suEmail" autocomplete="email" placeholder="vous@exemple.com">
+      <label data-i18n="mdp">Mot de passe (6 caractères min.)</label>
+      <input type="password" id="suPass" autocomplete="new-password" placeholder="••••••••">
+      <button class="btn btn-orange" id="btnSignup" data-i18n="demarrerEssai">Démarrer mes 14 jours gratuits</button>
+      <p style="font-size:12px;color:var(--encre-doux);margin-top:10px;text-align:center" data-i18n="essaiNote">
+        Essai gratuit 14 jours · puis 5 €/mois · sans engagement
+      </p>
+    </div>
+
+    <div id="authMsg"></div>
+  </div>
+</div>
+
+<!-- ============ ÉCRAN BLOQUÉ (essai fini / suspendu) ============ -->
+<div id="screenBlocked" class="fullpage hidden">
+  <div class="brand">Chez Djamil<small>Atelier SaaS</small></div>
+  <div class="carte">
+    <h2 style="color:var(--teal-deep)" id="blockedTitre">Votre essai gratuit est terminé</h2>
+    <p style="font-size:14px;color:var(--encre-doux);margin-top:8px" data-i18n="blockedTexte">
+      Vos données sont en sécurité. Activez votre abonnement pour continuer à gérer votre atelier.
+    </p>
+    <div class="prix-carte">
+      <div class="gros">5 €</div>
+      <div class="par" data-i18n="parMois">par mois · annulable à tout moment</div>
+    </div>
+    <a class="btn btn-wa" id="btnPayerWA" target="_blank" rel="noopener" data-i18n="payerWave">💬 Payer par Wave / Orange Money (WhatsApp)</a>
+    <button class="btn btn-ghost" disabled data-i18n="carteBientot">💳 Carte bancaire — bientôt disponible</button>
+    <button class="btn-sortir" id="btnBlockedSortir" style="width:100%;margin-top:16px" data-i18n="deconnexion">Déconnexion</button>
+  </div>
+</div>
+
+<!-- ============ APP PRINCIPALE ============ -->
+<div id="screenApp" class="hidden">
+  <header class="app">
+    <div class="header-haut">
+      <div class="brand" id="brandNom">Chez Djamil</div>
+      <div class="header-actions">
+        <span class="badge-essai hidden" id="badgePlan"></span>
+        <div class="lang-switch">
+          <button id="langFR">FR</button>
+          <button id="langEN">EN</button>
+        </div>
+      </div>
+    </div>
+    <nav class="ongles">
+      <button data-vue="apercu" class="actif" data-i18n="apercu">Aperçu</button>
+      <button data-vue="commandes" data-i18n="commandes">Commandes</button>
+      <button data-vue="clients" data-i18n="clients">Clients</button>
+      <button data-vue="reglages" data-i18n="reglages">Réglages</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- ---- Aperçu ---- -->
+    <div id="vueApercu">
+      <div id="zoneAlerte"></div>
+      <div class="grille-stats">
+        <div class="stat"><div class="num" id="statCommandes">0</div><div class="lbl" data-i18n="enCours">En cours</div></div>
+        <div class="stat"><div class="num" id="statPretes">0</div><div class="lbl" data-i18n="pretes">Prêtes</div></div>
+        <div class="stat"><div class="num" id="statClients">0</div><div class="lbl" data-i18n="clients">Clients</div></div>
+        <div class="stat"><div class="num" id="statRecettes">0</div><div class="lbl" data-i18n="recettesMois">Reçu ce mois</div></div>
+      </div>
+      <h2 class="section-titre" data-i18n="livraisonsProches">Livraisons à venir</h2>
+      <div id="listeProches"></div>
+    </div>
+
+    <!-- ---- Commandes ---- -->
+    <div id="vueCommandes" class="hidden">
+      <button class="btn btn-orange" id="btnNewCmd" data-i18n="nouvelleCommande">+ Nouvelle commande</button>
+      <input type="text" id="rechCmd" style="margin-top:12px" placeholder="🔍 Rechercher (nom, code…)">
+      <div id="listeCommandes"></div>
+    </div>
+
+    <!-- ---- Clients ---- -->
+    <div id="vueClients" class="hidden">
+      <button class="btn btn-teal" id="btnNewClient" data-i18n="nouveauClient">+ Nouveau client</button>
+      <input type="text" id="rechClient" style="margin-top:12px" placeholder="🔍 Rechercher un client">
+      <div id="listeClients"></div>
+    </div>
+
+    <!-- ---- Réglages ---- -->
+    <div id="vueReglages" class="hidden">
+      <div class="carte" style="max-width:none">
+        <h3 style="color:var(--teal-deep)" data-i18n="monAtelier">Mon atelier</h3>
+        <label data-i18n="nomAtelier">Nom de votre atelier</label>
+        <input type="text" id="regNom">
+        <label data-i18n="indicatif">Indicatif téléphonique (sans +)</label>
+        <input type="text" id="regIndicatif" inputmode="numeric">
+        <label data-i18n="devise">Devise</label>
+        <input type="text" id="regDevise">
+        <label data-i18n="langueMessages">Langue des messages WhatsApp clients</label>
+        <select id="regLangueMsg">
+          <option value="fr">Français</option>
+          <option value="en">English</option>
+        </select>
+        <button class="btn btn-teal" id="btnSaveReglages" data-i18n="enregistrer">Enregistrer</button>
+        <div id="regMsg"></div>
+      </div>
+      <div class="carte" style="max-width:none;margin-top:14px">
+        <h3 style="color:var(--teal-deep)" data-i18n="abonnement">Abonnement</h3>
+        <p style="font-size:14px;color:var(--encre-doux);margin-top:6px" id="txtAbonnement"></p>
+        <a class="btn btn-wa btn-mini" id="btnAboWA" target="_blank" rel="noopener" data-i18n="contactSupport">💬 Contacter le support</a>
+      </div>
+      <button class="btn btn-ghost" id="btnLogout" data-i18n="deconnexion">Déconnexion</button>
+    </div>
+  </main>
+  <footer class="pied">Chez Djamil · chezdjamil.com</footer>
+</div>
+
+<!-- ============ ADMIN ============ -->
+<div id="screenAdmin" class="hidden">
+  <div class="admin-bandeau">👑 Admin — Chez Djamil SaaS</div>
+  <main>
+    <div class="grille-stats">
+      <div class="stat"><div class="num" id="admTotal">0</div><div class="lbl">Ateliers</div></div>
+      <div class="stat"><div class="num" id="admActifs">0</div><div class="lbl">Abonnés actifs</div></div>
+      <div class="stat"><div class="num" id="admEssai">0</div><div class="lbl">En essai</div></div>
+      <div class="stat"><div class="num" id="admExpires">0</div><div class="lbl">Expirés</div></div>
+    </div>
+    <h2 class="section-titre">Tous les ateliers</h2>
+    <div style="overflow-x:auto">
+      <table class="tableau-admin">
+        <thead><tr><th>Atelier</th><th>Email</th><th>Plan</th><th>Fin essai</th><th>Action</th></tr></thead>
+        <tbody id="admListe"></tbody>
+      </table>
+    </div>
+    <button class="btn btn-ghost" id="btnAdmLogout" style="max-width:300px;margin:20px auto">Déconnexion</button>
+  </main>
+</div>
+
+<!-- ============ MODALE générique ============ -->
+<div id="voile" class="voile hidden">
+  <div class="modale" id="modaleContenu"></div>
+</div>
+
+<script>
+/* ==================================================================
+   FIREBASE_CONFIG  ←←← COLLE TA CONFIG ICI (console.firebase.google.com)
+   ================================================================== */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBpZi6RN33hlQkMpp8n-XMFPVyYknQtsTg",
+  authDomain: "chez-djamil-saas.firebaseapp.com",
+  projectId: "chez-djamil-saas",
+  storageBucket: "chez-djamil-saas.firebasestorage.app",
+  messagingSenderId: "247792907548",
+  appId: "1:247792907548:web:c506939ee6d89822c4b6d9"
+};
+
+/* Emails admin (toi). Ces comptes voient le tableau de bord admin. */
+const ADMIN_EMAILS = ["trawallydjamil@gmail.com"];
+
+/* Numéro WhatsApp support (paiements Wave/Orange Money) — indicatif inclus, sans + */
+const SUPPORT_WHATSAPP = "2203344652";
+
+const DUREE_ESSAI_JOURS = 14;
+
+/* ================== i18n (interface) ================== */
+const I18N = {
+  fr: {
+    slogan:"Gestion d'atelier de couture", connexion:"Connexion", creerCompte:"Créer mon atelier",
+    email:"Email", mdp:"Mot de passe", seConnecter:"Se connecter", mdpOublie:"Mot de passe oublié ?",
+    nomAtelier:"Nom de votre atelier", pays:"Pays", indicatif:"Indicatif téléphonique (sans +)",
+    devise:"Devise", tel:"Votre numéro WhatsApp (sans indicatif)",
+    demarrerEssai:"Démarrer mes 14 jours gratuits",
+    essaiNote:"Essai gratuit 14 jours · puis 5 €/mois · sans engagement",
+    blockedTexte:"Vos données sont en sécurité. Activez votre abonnement pour continuer à gérer votre atelier.",
+    parMois:"par mois · annulable à tout moment",
+    payerWave:"💬 Payer par Wave / Orange Money (WhatsApp)",
+    carteBientot:"💳 Carte bancaire — bientôt disponible",
+    deconnexion:"Déconnexion", apercu:"Aperçu", commandes:"Commandes", clients:"Clients", reglages:"Réglages",
+    enCours:"En cours", pretes:"Prêtes", recettesMois:"Reçu ce mois",
+    livraisonsProches:"Livraisons à venir", nouvelleCommande:"+ Nouvelle commande", nouveauClient:"+ Nouveau client",
+    monAtelier:"Mon atelier", langueMessages:"Langue des messages WhatsApp clients",
+    enregistrer:"Enregistrer", abonnement:"Abonnement", contactSupport:"💬 Contacter le support",
+    aucuneCommande:"Aucune commande pour l'instant. Créez la première !",
+    aucunClient:"Aucun client pour l'instant. Ajoutez le premier !",
+    aucuneLivraison:"Aucune livraison prévue dans les 3 prochains jours. 🎉",
+    client:"Client", description:"Description (modèle, tissu…)", prix:"Prix total", avance:"Avance reçue",
+    dateLivraison:"Date de livraison", creer:"Créer", annuler:"Annuler",
+    nomClient:"Nom du client", telClient:"WhatsApp du client (sans indicatif)", note:"Note (mesures, préférences…)",
+    ajouter:"Ajouter", statutSuiv:"Étape suivante", prevenirWA:"Prévenir sur WhatsApp",
+    reste:"Reste", paye:"Payé", livraison:"Livraison", demain:"DEMAIN", aujourdhui:"AUJOURD'HUI",
+    dansXJours:"dans {n} jours", enRetard:"EN RETARD",
+    essaiJours:"Essai · {n} j restants", planActif:"Abonné ✓", supprimer:"Supprimer",
+    confirmSuppr:"Supprimer définitivement ?", enregistre:"Enregistré ✓",
+    marquerPaye:"Encaisser le reste", jourExpire:"dernier jour"
+  },
+  en: {
+    slogan:"Tailor shop management", connexion:"Log in", creerCompte:"Create my shop",
+    email:"Email", mdp:"Password", seConnecter:"Log in", mdpOublie:"Forgot password?",
+    nomAtelier:"Your shop name", pays:"Country", indicatif:"Phone country code (no +)",
+    devise:"Currency", tel:"Your WhatsApp number (no country code)",
+    demarrerEssai:"Start my 14-day free trial",
+    essaiNote:"Free 14-day trial · then €5/month · cancel anytime",
+    blockedTexte:"Your data is safe. Activate your subscription to keep managing your shop.",
+    parMois:"per month · cancel anytime",
+    payerWave:"💬 Pay via Wave / Orange Money (WhatsApp)",
+    carteBientot:"💳 Card payment — coming soon",
+    deconnexion:"Log out", apercu:"Overview", commandes:"Orders", clients:"Clients", reglages:"Settings",
+    enCours:"In progress", pretes:"Ready", recettesMois:"Received this month",
+    livraisonsProches:"Upcoming deliveries", nouvelleCommande:"+ New order", nouveauClient:"+ New client",
+    monAtelier:"My shop", langueMessages:"Language of client WhatsApp messages",
+    enregistrer:"Save", abonnement:"Subscription", contactSupport:"💬 Contact support",
+    aucuneCommande:"No orders yet. Create the first one!",
+    aucunClient:"No clients yet. Add the first one!",
+    aucuneLivraison:"No deliveries in the next 3 days. 🎉",
+    client:"Client", description:"Description (style, fabric…)", prix:"Total price", avance:"Deposit received",
+    dateLivraison:"Delivery date", creer:"Create", annuler:"Cancel",
+    nomClient:"Client name", telClient:"Client's WhatsApp (no country code)", note:"Note (measurements, preferences…)",
+    ajouter:"Add", statutSuiv:"Next step", prevenirWA:"Notify on WhatsApp",
+    reste:"Balance", paye:"Paid", livraison:"Delivery", demain:"TOMORROW", aujourdhui:"TODAY",
+    dansXJours:"in {n} days", enRetard:"LATE",
+    essaiJours:"Trial · {n} days left", planActif:"Subscribed ✓", supprimer:"Delete",
+    confirmSuppr:"Delete permanently?", enregistre:"Saved ✓",
+    marquerPaye:"Collect balance", jourExpire:"last day"
+  }
+};
+
+/* Messages WhatsApp envoyés aux clients (langue réglable par atelier) */
+const MSG_CLIENT = {
+  fr: {
+    en_attente:"Bonjour {client} 👋\nVotre commande ({desc}) a bien été enregistrée chez {atelier}.\nCode: {code}\nLivraison prévue: {date}\nMerci de votre confiance ! 🙏",
+    en_cours:"Bonjour {client} 👋\nBonne nouvelle: votre commande {code} ({desc}) est en cours de confection chez {atelier}. ✂️🧵",
+    pret:"Bonjour {client} 🎉\nVotre commande {code} ({desc}) est PRÊTE chez {atelier} !\nVous pouvez passer la récupérer. Reste à payer: {reste} {devise}.",
+    livre:"Bonjour {client} 🙏\nMerci d'avoir choisi {atelier} ! Votre commande {code} a été livrée.\nÀ très bientôt ! ✨"
+  },
+  en: {
+    en_attente:"Hello {client} 👋\nYour order ({desc}) has been recorded at {atelier}.\nCode: {code}\nExpected delivery: {date}\nThank you for your trust! 🙏",
+    en_cours:"Hello {client} 👋\nGood news: your order {code} ({desc}) is being made at {atelier}. ✂️🧵",
+    pret:"Hello {client} 🎉\nYour order {code} ({desc}) is READY at {atelier}!\nYou can come pick it up. Balance due: {reste} {devise}.",
+    livre:"Hello {client} 🙏\nThank you for choosing {atelier}! Your order {code} has been delivered.\nSee you soon! ✨"
+  }
+};
+
+const STATUTS = ["en_attente","en_cours","pret","livre"];
+const STATUT_LBL = {
+  fr:{en_attente:"En attente",en_cours:"En cours",pret:"Prêt ✓",livre:"Livré"},
+  en:{en_attente:"Pending",en_cours:"In progress",pret:"Ready ✓",livre:"Delivered"}
+};
+const STATUT_CLS = {en_attente:"st-attente",en_cours:"st-cours",pret:"st-pret",livre:"st-livre"};
+
+/* ================== État global ================== */
+let langue = localStorage.getItem("cd_lang") || "fr";
+let db=null, auth=null, user=null, atelier=null;
+let clientsCache=[], commandesCache=[];
+let unsubClients=null, unsubCmd=null;
+
+const $ = id => document.getElementById(id);
+const t = (k,vars) => {
+  let s = (I18N[langue] && I18N[langue][k]) || k;
+  if(vars) Object.keys(vars).forEach(v => { s = s.replace("{"+v+"}", vars[v]); });
+  return s;
+};
+function appliquerI18n(){
+  document.querySelectorAll("[data-i18n]").forEach(el=>{
+    el.textContent = t(el.getAttribute("data-i18n"));
+  });
+  $("langFR").classList.toggle("actif", langue==="fr");
+  $("langEN").classList.toggle("actif", langue==="en");
+}
+function setLang(l){ langue=l; localStorage.setItem("cd_lang",l); appliquerI18n(); rendreTout(); }
+
+function montrer(id){
+  ["screenSetup","screenAuth","screenBlocked","screenApp","screenAdmin"].forEach(s=>$(s).classList.add("hidden"));
+  $(id).classList.remove("hidden");
+}
+function echap(s){ return String(s==null?"":s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function fmtDate(iso){
+  if(!iso) return "—";
+  const d = new Date(iso+"T00:00:00");
+  return d.toLocaleDateString(langue==="fr"?"fr-FR":"en-GB",{day:"numeric",month:"short",year:"numeric"});
+}
+
+/* ================== Démarrage ================== */
+window.addEventListener("DOMContentLoaded", ()=>{
+  appliquerI18n();
+  $("langFR").onclick = ()=>setLang("fr");
+  $("langEN").onclick = ()=>setLang("en");
+
+  if(!FIREBASE_CONFIG.apiKey || FIREBASE_CONFIG.apiKey.indexOf("COLLE")===0){
+    montrer("screenSetup"); return;
+  }
+  firebase.initializeApp(FIREBASE_CONFIG);
+  auth = firebase.auth();
+  db = firebase.firestore();
+  db.enablePersistence({synchronizeTabs:true}).catch(()=>{});
+
+  brancherAuthUI();
+  brancherAppUI();
+
+  auth.onAuthStateChanged(async u=>{
+    user = u;
+    if(!u){ montrer("screenAuth"); return; }
+    if(ADMIN_EMAILS.indexOf((u.email||"").toLowerCase())>=0){ chargerAdmin(); return; }
+    await chargerAtelier();
+  });
+});
+
+/* ================== AUTH ================== */
+function brancherAuthUI(){
+  $("tabLogin").onclick = ()=>{ $("tabLogin").classList.add("actif");$("tabSignup").classList.remove("actif");$("formLogin").classList.remove("hidden");$("formSignup").classList.add("hidden");$("authMsg").innerHTML=""; };
+  $("tabSignup").onclick = ()=>{ $("tabSignup").classList.add("actif");$("tabLogin").classList.remove("actif");$("formSignup").classList.remove("hidden");$("formLogin").classList.add("hidden");$("authMsg").innerHTML=""; };
+  $("suPays").onchange = ()=>{ $("zoneAutrePays").classList.toggle("hidden", $("suPays").value!=="autre|"); };
+
+  $("btnLogin").onclick = async ()=>{
+    const em=$("loginEmail").value.trim(), mp=$("loginPass").value;
+    if(!em||!mp) return authErreur(langue==="fr"?"Remplis email et mot de passe.":"Fill in email and password.");
+    $("btnLogin").disabled=true;
+    try{ await auth.signInWithEmailAndPassword(em,mp); }
+    catch(e){ authErreur(msgFirebase(e)); }
+    $("btnLogin").disabled=false;
+  };
+
+  $("btnOubli").onclick = async ()=>{
+    const em=$("loginEmail").value.trim();
+    if(!em) return authErreur(langue==="fr"?"Entre ton email d'abord.":"Enter your email first.");
+    try{ await auth.sendPasswordResetEmail(em); $("authMsg").innerHTML='<div class="msg-ok">'+(langue==="fr"?"Email de réinitialisation envoyé ✓":"Reset email sent ✓")+'</div>'; }
+    catch(e){ authErreur(msgFirebase(e)); }
+  };
+
+  $("btnSignup").onclick = async ()=>{
+    const nom=$("suNom").value.trim();
+    let [ind,dev] = $("suPays").value.split("|");
+    if($("suPays").value==="autre|"){ ind=$("suIndicatif").value.trim(); dev=$("suDevise").value.trim(); }
+    const tel=$("suTel").value.trim().replace(/\D/g,"");
+    const em=$("suEmail").value.trim(), mp=$("suPass").value;
+    if(!nom||!ind||!dev||!tel||!em||mp.length<6)
+      return authErreur(langue==="fr"?"Remplis tous les champs (mot de passe: 6 caractères min).":"Fill in all fields (password: 6 chars min).");
+    $("btnSignup").disabled=true;
+    try{
+      const cred = await auth.createUserWithEmailAndPassword(em,mp);
+      const fin = new Date(); fin.setDate(fin.getDate()+DUREE_ESSAI_JOURS);
+      await db.collection("ateliers").doc(cred.user.uid).set({
+        nom:nom, indicatif:ind, devise:dev, telephone:tel, email:em,
+        langueMsg:langue, plan:"essai",
+        essaiFin: firebase.firestore.Timestamp.fromDate(fin),
+        creeLe: firebase.firestore.FieldValue.serverTimestamp(),
+        compteurCode: 0
+      });
+    }catch(e){ authErreur(msgFirebase(e)); }
+    $("btnSignup").disabled=false;
+  };
+}
+function authErreur(m){ $("authMsg").innerHTML='<div class="msg-erreur">'+echap(m)+'</div>'; }
+function msgFirebase(e){
+  const c=(e&&e.code)||"";
+  const M={
+    "auth/email-already-in-use": langue==="fr"?"Cet email a déjà un compte. Connecte-toi.":"This email already has an account. Log in.",
+    "auth/invalid-email": langue==="fr"?"Email invalide.":"Invalid email.",
+    "auth/weak-password": langue==="fr"?"Mot de passe trop faible (6 caractères min).":"Password too weak (6 chars min).",
+    "auth/user-not-found": langue==="fr"?"Aucun compte avec cet email.":"No account with this email.",
+    "auth/wrong-password": langue==="fr"?"Mot de passe incorrect.":"Wrong password.",
+    "auth/invalid-credential": langue==="fr"?"Email ou mot de passe incorrect.":"Wrong email or password.",
+    "auth/network-request-failed": langue==="fr"?"Problème de connexion internet.":"Network problem."
+  };
+  return M[c] || (e&&e.message) || "Erreur";
+}
+
+/* ================== TENANT (atelier) ================== */
+async function chargerAtelier(){
+  try{
+    const doc = await db.collection("ateliers").doc(user.uid).get();
+    if(!doc.exists){ await auth.signOut(); return; }
+    atelier = doc.data(); atelier.id = user.uid;
+
+    // Vérif essai / suspension
+    const now = new Date();
+    const fin = atelier.essaiFin && atelier.essaiFin.toDate ? atelier.essaiFin.toDate() : null;
+    if(atelier.plan==="suspendu" || (atelier.plan==="essai" && fin && now>fin)){
+      $("blockedTitre").textContent = atelier.plan==="suspendu"
+        ? (langue==="fr"?"Compte suspendu":"Account suspended")
+        : (langue==="fr"?"Votre essai gratuit est terminé":"Your free trial has ended");
+      const msg = encodeURIComponent(
+        (langue==="fr"?"Bonjour, je veux activer mon abonnement Chez Djamil (5€/mois). Mon atelier: ":"Hello, I want to activate my Chez Djamil subscription (€5/month). My shop: ")
+        + atelier.nom + " ("+atelier.email+")");
+      $("btnPayerWA").href = "https://wa.me/"+SUPPORT_WHATSAPP+"?text="+msg;
+      $("btnBlockedSortir").onclick = ()=>auth.signOut();
+      montrer("screenBlocked"); appliquerI18n(); return;
+    }
+
+    montrer("screenApp");
+    $("brandNom").textContent = atelier.nom || "Chez Djamil";
+    majBadgePlan(fin);
+    remplirReglages();
+    ecouterDonnees();
+    appliquerI18n();
+  }catch(e){
+    console.error(e);
+    authErreur(msgFirebase(e)); montrer("screenAuth");
+  }
+}
+function majBadgePlan(fin){
+  const b=$("badgePlan"); b.classList.remove("hidden");
+  if(atelier.plan==="actif"){ b.textContent=t("planActif"); b.classList.add("badge-actif"); }
+  else{
+    const jours = fin ? Math.max(0, Math.ceil((fin - new Date())/(24*3600*1000))) : 0;
+    b.textContent = jours<=1 ? t("essaiJours",{n:jours})+" ("+t("jourExpire")+")" : t("essaiJours",{n:jours});
+    b.classList.remove("badge-actif");
+  }
+}
+
+/* ================== Écoute Firestore ================== */
+function ecouterDonnees(){
+  if(unsubClients) unsubClients();
+  if(unsubCmd) unsubCmd();
+  const base = db.collection("ateliers").doc(atelier.id);
+  unsubClients = base.collection("clients").orderBy("nom").onSnapshot(s=>{
+    clientsCache = s.docs.map(d=>({id:d.id, ...d.data()}));
+    rendreTout();
+  });
+  unsubCmd = base.collection("commandes").orderBy("creeLe","desc").onSnapshot(s=>{
+    commandesCache = s.docs.map(d=>({id:d.id, ...d.data()}));
+    rendreTout();
+  });
+}
+
+/* ================== UI app ================== */
+function brancherAppUI(){
+  document.querySelectorAll("nav.ongles button").forEach(b=>{
+    b.onclick = ()=>{
+      document.querySelectorAll("nav.ongles button").forEach(x=>x.classList.remove("actif"));
+      b.classList.add("actif");
+      ["Apercu","Commandes","Clients","Reglages"].forEach(v=>$("vue"+v).classList.add("hidden"));
+      $("vue"+b.dataset.vue.charAt(0).toUpperCase()+b.dataset.vue.slice(1)).classList.remove("hidden");
+    };
+  });
+  $("btnNewClient").onclick = ()=>modaleClient();
+  $("btnNewCmd").onclick = ()=>modaleCommande();
+  $("rechClient").oninput = rendreClients;
+  $("rechCmd").oninput = rendreCommandes;
+  $("btnLogout").onclick = ()=>auth.signOut();
+  $("btnAdmLogout").onclick = ()=>auth.signOut();
+  $("btnSaveReglages").onclick = sauverReglages;
+  $("voile").onclick = e=>{ if(e.target===$("voile")) fermerModale(); };
+}
+function rendreTout(){ if(!atelier) return; rendreApercu(); rendreCommandes(); rendreClients(); }
+
+/* ---- Aperçu ---- */
+function rendreApercu(){
+  const enCours = commandesCache.filter(c=>c.statut==="en_attente"||c.statut==="en_cours");
+  const pretes = commandesCache.filter(c=>c.statut==="pret");
+  $("statCommandes").textContent = enCours.length;
+  $("statPretes").textContent = pretes.length;
+  $("statClients").textContent = clientsCache.length;
+
+  const debutMois = new Date(); debutMois.setDate(1); debutMois.setHours(0,0,0,0);
+  let recu=0;
+  commandesCache.forEach(c=>{
+    const d = c.creeLe && c.creeLe.toDate ? c.creeLe.toDate() : null;
+    if(d && d>=debutMois) recu += Number(c.avance||0);
+    if(c.soldeLe && c.soldeLe.toDate && c.soldeLe.toDate()>=debutMois) recu += Math.max(0, Number(c.prix||0)-Number(c.avance||0));
+  });
+  $("statRecettes").textContent = recu + " " + (atelier.devise||"");
+
+  // Livraisons proches (3 jours) + retard
+  const auj = new Date(); auj.setHours(0,0,0,0);
+  const proches=[], retard=[];
+  commandesCache.forEach(c=>{
+    if(c.statut==="livre" || !c.dateLivraison) return;
+    const d = new Date(c.dateLivraison+"T00:00:00");
+    const diff = Math.round((d-auj)/(24*3600*1000));
+    if(diff<0) retard.push({c,diff});
+    else if(diff<=3) proches.push({c,diff});
+  });
+  proches.sort((a,b)=>a.diff-b.diff);
+
+  let alerte="";
+  if(retard.length+proches.length>0){
+    alerte='<div class="alerte-livraison"><h3>⏰ '+(retard.length+proches.length)+' '+(langue==="fr"?"livraison(s) à surveiller !":"delivery(ies) to watch!")+'</h3>';
+    retard.forEach(x=>{ alerte+='<div>• <b>'+echap(x.c.clientNom)+'</b> — '+echap(x.c.description||"")+' <b style="color:var(--rouge)">'+t("enRetard")+'</b></div>'; });
+    proches.forEach(x=>{
+      const q = x.diff===0?t("aujourdhui"):(x.diff===1?t("demain"):t("dansXJours",{n:x.diff}));
+      alerte+='<div>• <b>'+echap(x.c.clientNom)+'</b> — '+echap(x.c.description||"")+' ('+(langue==="fr"?"livraison":"delivery")+' <b>'+q+'</b>)</div>';
+    });
+    alerte+='</div>';
+  }
+  $("zoneAlerte").innerHTML = alerte;
+
+  const aVenir = commandesCache.filter(c=>c.statut!=="livre" && c.dateLivraison)
+    .sort((a,b)=>a.dateLivraison<b.dateLivraison?-1:1).slice(0,6);
+  $("listeProches").innerHTML = aVenir.length
+    ? aVenir.map(carteCommandeHTML).join("")
+    : '<div class="vide">'+t("aucuneLivraison")+'</div>';
+  brancherCartes($("listeProches"));
+}
+
+/* ---- Commandes ---- */
+function carteCommandeHTML(c){
+  const reste = Math.max(0, Number(c.prix||0)-Number(c.avance||0));
+  return '<div class="item" data-id="'+c.id+'">'
+    +'<div class="ligne1"><span class="nom">'+echap(c.clientNom)+'</span><span class="code">'+echap(c.code||"")+'</span></div>'
+    +'<div class="detail">'+echap(c.description||"")+'</div>'
+    +'<div class="detail">📅 '+t("livraison")+': <b>'+fmtDate(c.dateLivraison)+'</b></div>'
+    +'<div class="prix-ligne">'+t("paye")+': '+Number(c.avance||0)+' / '+Number(c.prix||0)+' '+echap(atelier.devise||"")
+    +(reste>0?' · <span class="reste">'+t("reste")+': '+reste+'</span>':' ✓')+'</div>'
+    +'<span class="statut '+STATUT_CLS[c.statut]+'">'+STATUT_LBL[langue][c.statut]+'</span>'
+    +'<div>'
+    +(c.statut!=="livre"?'<button class="btn btn-teal btn-mini act-suivant">➜ '+t("statutSuiv")+'</button>':'')
+    +'<button class="btn btn-wa btn-mini act-wa">💬 '+t("prevenirWA")+'</button>'
+    +(reste>0 && c.statut!=="livre"?'<button class="btn btn-orange btn-mini act-payer">💰 '+t("marquerPaye")+'</button>':'')
+    +'<button class="btn btn-ghost btn-mini act-suppr">🗑</button>'
+    +'</div></div>';
+}
+function rendreCommandes(){
+  const q = ($("rechCmd").value||"").toLowerCase();
+  const liste = commandesCache.filter(c=>
+    !q || (c.clientNom||"").toLowerCase().includes(q) || (c.code||"").toLowerCase().includes(q) || (c.description||"").toLowerCase().includes(q)
+  );
+  $("listeCommandes").innerHTML = liste.length
+    ? liste.map(carteCommandeHTML).join("")
+    : '<div class="vide">'+t("aucuneCommande")+'</div>';
+  brancherCartes($("listeCommandes"));
+}
+function brancherCartes(zone){
+  zone.querySelectorAll(".item").forEach(el=>{
+    const c = commandesCache.find(x=>x.id===el.dataset.id);
+    if(!c) return;
+    const bS=el.querySelector(".act-suivant"), bW=el.querySelector(".act-wa"), bP=el.querySelector(".act-payer"), bD=el.querySelector(".act-suppr");
+    if(bS) bS.onclick = ()=>statutSuivant(c);
+    if(bW) bW.onclick = ()=>ouvrirWA(c);
+    if(bP) bP.onclick = ()=>encaisserReste(c);
+    if(bD) bD.onclick = ()=>supprimerCommande(c);
+  });
+}
+async function statutSuivant(c){
+  const i = STATUTS.indexOf(c.statut);
+  if(i<0 || i>=STATUTS.length-1) return;
+  const maj = {statut: STATUTS[i+1]};
+  if(STATUTS[i+1]==="livre" && Number(c.avance||0)>=Number(c.prix||0)){ /* rien */ }
+  await db.collection("ateliers").doc(atelier.id).collection("commandes").doc(c.id).update(maj);
+}
+async function encaisserReste(c){
+  await db.collection("ateliers").doc(atelier.id).collection("commandes").doc(c.id).update({
+    avance: Number(c.prix||0),
+    soldeLe: firebase.firestore.FieldValue.serverTimestamp()
+  });
+}
+async function supprimerCommande(c){
+  if(!confirm(t("confirmSuppr"))) return;
+  await db.collection("ateliers").doc(atelier.id).collection("commandes").doc(c.id).delete();
+}
+function ouvrirWA(c){
+  const lg = atelier.langueMsg==="en" ? "en" : "fr";
+  const reste = Math.max(0, Number(c.prix||0)-Number(c.avance||0));
+  let msg = MSG_CLIENT[lg][c.statut] || MSG_CLIENT[lg].en_attente;
+  msg = msg.replace("{client}",c.clientNom).replace("{desc}",c.description||"")
+           .replace("{code}",c.code||"").replace(/\{atelier\}/g,atelier.nom)
+           .replace("{date}",fmtDate(c.dateLivraison)).replace("{reste}",reste)
+           .replace("{devise}",atelier.devise||"");
+  const tel = (atelier.indicatif||"")+(c.clientTel||"").replace(/\D/g,"");
+  window.open("https://wa.me/"+tel+"?text="+encodeURIComponent(msg),"_blank");
+}
+
+/* ---- Clients ---- */
+function rendreClients(){
+  const q = ($("rechClient").value||"").toLowerCase();
+  const liste = clientsCache.filter(c=>!q || (c.nom||"").toLowerCase().includes(q) || (c.telephone||"").includes(q));
+  $("listeClients").innerHTML = liste.length
+    ? liste.map(c=>'<div class="item" data-id="'+c.id+'">'
+        +'<div class="ligne1"><span class="nom">'+echap(c.nom)+'</span></div>'
+        +'<div class="detail">📱 +'+echap(atelier.indicatif||"")+' '+echap(c.telephone||"")+'</div>'
+        +(c.note?'<div class="detail">📝 '+echap(c.note)+'</div>':'')
+        +'<div><button class="btn btn-orange btn-mini cl-cmd">+ '+t("commandes")+'</button>'
+        +'<button class="btn btn-ghost btn-mini cl-suppr">🗑</button></div>'
+      +'</div>').join("")
+    : '<div class="vide">'+t("aucunClient")+'</div>';
+  $("listeClients").querySelectorAll(".item").forEach(el=>{
+    const c = clientsCache.find(x=>x.id===el.dataset.id);
+    if(!c) return;
+    el.querySelector(".cl-cmd").onclick = ()=>modaleCommande(c.id);
+    el.querySelector(".cl-suppr").onclick = async ()=>{
+      if(confirm(t("confirmSuppr"))) await db.collection("ateliers").doc(atelier.id).collection("clients").doc(c.id).delete();
+    };
+  });
+}
+
+/* ---- Modales ---- */
+function fermerModale(){ $("voile").classList.add("hidden"); }
+function modaleClient(){
+  $("modaleContenu").innerHTML =
+    '<h3>'+t("nouveauClient").replace("+ ","")+'</h3>'
+    +'<label>'+t("nomClient")+'</label><input id="mNom">'
+    +'<label>'+t("telClient")+'</label><input id="mTel" inputmode="numeric">'
+    +'<label>'+t("note")+'</label><textarea id="mNote" rows="2"></textarea>'
+    +'<button class="btn btn-teal" id="mOK">'+t("ajouter")+'</button>'
+    +'<button class="btn btn-ghost" id="mNon">'+t("annuler")+'</button>';
+  $("voile").classList.remove("hidden");
+  $("mNon").onclick = fermerModale;
+  $("mOK").onclick = async ()=>{
+    const nom=$("mNom").value.trim(), tel=$("mTel").value.trim().replace(/\D/g,"");
+    if(!nom||!tel) return;
+    $("mOK").disabled=true;
+    await db.collection("ateliers").doc(atelier.id).collection("clients").add({
+      nom:nom, telephone:tel, note:$("mNote").value.trim(),
+      creeLe: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    fermerModale();
+  };
+}
+function modaleCommande(clientPre){
+  if(!clientsCache.length){ modaleClient(); return; }
+  const opts = clientsCache.map(c=>'<option value="'+c.id+'"'+(c.id===clientPre?' selected':'')+'>'+echap(c.nom)+'</option>').join("");
+  const demain = new Date(Date.now()+3*24*3600*1000).toISOString().slice(0,10);
+  $("modaleContenu").innerHTML =
+    '<h3>'+t("nouvelleCommande").replace("+ ","")+'</h3>'
+    +'<label>'+t("client")+'</label><select id="mClient">'+opts+'</select>'
+    +'<label>'+t("description")+'</label><input id="mDesc" placeholder="Boubou grand modèle, bazin bleu">'
+    +'<label>'+t("prix")+' ('+echap(atelier.devise||"")+')</label><input id="mPrix" inputmode="numeric" type="number" min="0">'
+    +'<label>'+t("avance")+'</label><input id="mAvance" inputmode="numeric" type="number" min="0" value="0">'
+    +'<label>'+t("dateLivraison")+'</label><input id="mDate" type="date" value="'+demain+'">'
+    +'<button class="btn btn-orange" id="mOK">'+t("creer")+'</button>'
+    +'<button class="btn btn-ghost" id="mNon">'+t("annuler")+'</button>';
+  $("voile").classList.remove("hidden");
+  $("mNon").onclick = fermerModale;
+  $("mOK").onclick = async ()=>{
+    const cl = clientsCache.find(x=>x.id===$("mClient").value);
+    const desc=$("mDesc").value.trim(), prix=Number($("mPrix").value||0);
+    if(!cl||!desc||!prix) return;
+    $("mOK").disabled=true;
+    const ref = db.collection("ateliers").doc(atelier.id);
+    const num = (atelier.compteurCode||0)+1;
+    atelier.compteurCode = num;
+    const code = "C"+String(num).padStart(3,"0");
+    await ref.update({compteurCode:num});
+    await ref.collection("commandes").add({
+      clientId:cl.id, clientNom:cl.nom, clientTel:cl.telephone,
+      description:desc, prix:prix, avance:Number($("mAvance").value||0),
+      dateLivraison:$("mDate").value, statut:"en_attente", code:code,
+      creeLe: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    fermerModale();
+  };
+}
+
+/* ---- Réglages ---- */
+function remplirReglages(){
+  $("regNom").value = atelier.nom||"";
+  $("regIndicatif").value = atelier.indicatif||"";
+  $("regDevise").value = atelier.devise||"";
+  $("regLangueMsg").value = atelier.langueMsg||"fr";
+  const fin = atelier.essaiFin && atelier.essaiFin.toDate ? atelier.essaiFin.toDate() : null;
+  $("txtAbonnement").textContent = atelier.plan==="actif"
+    ? (langue==="fr"?"Abonnement actif — 5 €/mois. Merci ! 💚":"Active subscription — €5/month. Thank you! 💚")
+    : (langue==="fr"?"Essai gratuit jusqu'au ":"Free trial until ")+(fin?fin.toLocaleDateString():"—");
+  const msg = encodeURIComponent("Bonjour, question sur Chez Djamil SaaS. Atelier: "+(atelier.nom||"")+" ("+(atelier.email||"")+")");
+  $("btnAboWA").href = "https://wa.me/"+SUPPORT_WHATSAPP+"?text="+msg;
+}
+async function sauverReglages(){
+  const maj = {
+    nom:$("regNom").value.trim(),
+    indicatif:$("regIndicatif").value.trim().replace(/\D/g,""),
+    devise:$("regDevise").value.trim(),
+    langueMsg:$("regLangueMsg").value
+  };
+  await db.collection("ateliers").doc(atelier.id).update(maj);
+  Object.assign(atelier,maj);
+  $("brandNom").textContent = atelier.nom;
+  $("regMsg").innerHTML = '<div class="msg-ok">'+t("enregistre")+'</div>';
+  setTimeout(()=>{$("regMsg").innerHTML="";},2500);
+}
+
+/* ================== ADMIN ================== */
+async function chargerAdmin(){
+  montrer("screenAdmin");
+  try{
+    const snap = await db.collection("ateliers").get();
+    const rows=[]; let actifs=0, essai=0, expires=0;
+    const now = new Date();
+    snap.forEach(d=>{
+      const a=d.data();
+      const fin = a.essaiFin && a.essaiFin.toDate ? a.essaiFin.toDate() : null;
+      let etat = a.plan;
+      if(a.plan==="essai" && fin && now>fin) etat="expiré";
+      if(etat==="actif") actifs++; else if(etat==="essai") essai++; else if(etat==="expiré") expires++;
+      rows.push({id:d.id, nom:a.nom, email:a.email, plan:a.plan, etat:etat, fin:fin});
+    });
+    $("admTotal").textContent=snap.size; $("admActifs").textContent=actifs;
+    $("admEssai").textContent=essai; $("admExpires").textContent=expires;
+    $("admListe").innerHTML = rows.map(r=>
+      '<tr><td><b>'+echap(r.nom||"—")+'</b></td><td>'+echap(r.email||"—")+'</td>'
+      +'<td>'+echap(r.etat)+'</td><td>'+(r.fin?r.fin.toLocaleDateString():"—")+'</td>'
+      +'<td><button class="btn btn-teal btn-mini adm-act" data-id="'+r.id+'">✓ Activer</button>'
+      +'<button class="btn btn-ghost btn-mini adm-susp" data-id="'+r.id+'">⏸</button></td></tr>'
+    ).join("");
+    $("admListe").querySelectorAll(".adm-act").forEach(b=>{
+      b.onclick = async ()=>{ await db.collection("ateliers").doc(b.dataset.id).update({plan:"actif"}); chargerAdmin(); };
+    });
+    $("admListe").querySelectorAll(".adm-susp").forEach(b=>{
+      b.onclick = async ()=>{ await db.collection("ateliers").doc(b.dataset.id).update({plan:"suspendu"}); chargerAdmin(); };
+    });
+  }catch(e){ console.error(e); alert("Admin: "+(e.message||e)); }
+}
+</script>
+</body>
+</html>
