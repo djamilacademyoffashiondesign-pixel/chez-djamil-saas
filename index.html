@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="fr" translate="no">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="google" content="notranslate">
+<title>Chez Djamil — Gestion d'Atelier</title>
+<meta name="theme-color" content="#0D9488">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+<style>
+:root{
+  --teal:#0D9488;
+  --teal-deep:#0F766E;
+  --teal-soft:#CCFBF1;
+  --orange:#F97316;
+  --orange-soft:#FFEDD5;
+  --creme:#F7F5F0;
+  --carte:#FFFFFF;
+  --encre:#1C2B2A;
+  --encre-doux:#5C6B6A;
+  --ligne:#E4E1D8;
+  --rouge:#DC2626;
+  --rouge-soft:#FEE2E2;
+  --vert:#16A34A;
+  --vert-soft:#DCFCE7;
+  --radius:14px;
+  --ombre:0 1px 3px rgba(28,43,42,.08), 0 4px 14px rgba(28,43,42,.06);
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{
+  font-family:'Inter',system-ui,sans-serif;
+  background:var(--creme);
+  color:var(--encre);
+  font-size:15px;
+  line-height:1.5;
+  min-height:100vh;
+}
+h1,h2,h3,.brand{font-family:'Fraunces',Georgia,serif}
+.hidden{display:none !important}
+
+/* ===== Bande signature "mètre ruban" ===== */
+.tape{
+  height:8px;
+  background:
+    repeating-linear-gradient(90deg,
+      var(--teal) 0 2px, transparent 2px 12px),
+    linear-gradient(90deg, var(--orange-soft), var(--teal-soft));
+  border-bottom:1px solid var(--ligne);
+}
+
+/* ===== Écrans plein-page (auth / setup / bloqué) ===== */
+.fullpage{
+  min-height:100vh;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  padding:24px 16px 48px;
+}
+.brand{
+  font-size:34px;
+  font-weight:700;
+  color:var(--teal-deep);
+  letter-spacing:-.5px;
+}
+.brand small{
+  display:block;
+  font-family:'Inter',sans-serif;
+  font-size:12px;
+  font-weight:600;
+  letter-spacing:2.5px;
+  text-transform:uppercase;
+  color:var(--orange);
+  margin-top:2px;
+}
+.carte{
+  background:var(--carte);
+  border:1px solid var(--ligne);
+  border-radius:var(--radius);
+  box-shadow:var(--ombre);
+  padding:22px 18px;
+  width:100%;
+  max-width:440px;
+}
+.fullpage .carte{margin-top:22px}
+
+/* ===== Formulaires ===== */
+label{display:block;font-size:13px;font-weight:600;color:var(--encre-doux);margin:12px 0 4px}
+input,select,textarea{
+  width:100%;
+  padding:12px 14px;
+  border:1.5px solid var(--ligne);
+  border-radius:10px;
+  font-size:15px;
+  font-family:inherit;
+  background:#FDFCFA;
+  color:var(--encre);
+}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--teal);outline-offset:1px;border-color:var(--teal)}
+.btn{
+  display:block;
+  width:100%;
+  padding:13px;
+  border:none;
+  border-radius:10px;
+  font-size:15px;
+  font-weight:600;
+  font-family:inherit;
+  cursor:pointer;
+  margin-top:14px;
+  text-align:center;
+  text-decoration:none;
+}
+.btn-teal{background:var(--teal);color:#fff}
+.btn-teal:active{background:var(--teal-deep)}
+.btn-orange{background:var(--orange);color:#fff}
+.btn-ghost{background:transparent;color:var(--teal-deep);border:1.5px solid var(--teal)}
+.btn-wa{background:#16A34A;color:#fff}
+.btn-mini{
+  width:auto;display:inline-block;padding:8px 14px;font-size:13px;margin:6px 6px 0 0;
+}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+
+.tabs-auth{display:flex;border:1.5px solid var(--ligne);border-radius:10px;overflow:hidden;margin-bottom:6px}
+.tabs-auth button{
+  flex:1;padding:11px;border:none;background:#FDFCFA;font-weight:600;font-size:14px;color:var(--encre-doux);cursor:pointer;font-family:inherit;
+}
+.tabs-auth button.actif{background:var(--teal);color:#fff}
+
+.msg-erreur{background:var(--rouge-soft);color:var(--rouge);border-radius:8px;padding:10px 12px;font-size:13px;margin-top:12px}
+.msg-ok{background:var(--vert-soft);color:var(--vert);border-radius:8px;padding:10px 12px;font-size:13px;margin-top:12px}
+
+/* ===== Header app ===== */
+header.app{
+  background:var(--carte);
+  border-bottom:1px solid var(--ligne);
+  padding:12px 16px 0;
+  position:sticky;top:0;z-index:50;
+}
+.header-haut{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.header-haut .brand{font-size:21px}
+.badge-essai{
+  font-size:11.5px;font-weight:600;
+  background:var(--orange-soft);color:#C2410C;
+  padding:4px 10px;border-radius:99px;white-space:nowrap;
+}
+.badge-actif{background:var(--vert-soft);color:var(--vert)}
+.header-actions{display:flex;align-items:center;gap:8px}
+.lang-switch{
+  display:flex;border:1.5px solid var(--ligne);border-radius:99px;overflow:hidden;
+}
+.lang-switch button{
+  border:none;background:transparent;padding:5px 11px;font-size:12px;font-weight:700;cursor:pointer;color:var(--encre-doux);font-family:inherit;
+}
+.lang-switch button.actif{background:var(--teal);color:#fff}
+.btn-sortir{border:none;background:transparent;color:var(--encre-doux);font-size:12.5px;font-weight:600;cursor:pointer;padding:6px;font-family:inherit;text-decoration:underline}
+
+nav.ongles{display:flex;gap:2px;margin-top:10px;overflow-x:auto}
+nav.ongles button{
+  border:none;background:transparent;padding:10px 14px;font-size:14px;font-weight:600;color:var(--encre-doux);cursor:pointer;font-family:inherit;border-bottom:3px solid transparent;white-space:nowrap;
+}
+nav.ongles button.actif{color:var(--teal-deep);border-bottom-color:var(--orange)}
+
+main{padding:16px;max-width:760px;margin:0 auto;padding-bottom:70px}
+.section-titre{font-size:19px;margin:18px 0 10px;color:var(--teal-deep)}
+.grille-stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.stat{
+  background:var(--carte);border:1px solid var(--ligne);border-radius:var(--radius);padding:16px;text-align:center;box-shadow:var(--ombre);
+}
+.stat .num{font-family:'Fraunces',serif;font-size:30px;font-weight:700;color:var(--teal-deep)}
+.stat .lbl{font-size:11.5px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--encre-doux);margin-top:2px}
+
+.alerte-livraison{
+  background:var(--rouge-soft);border:1px solid #FCA5A5;border-radius:var(--radius);padding:14px 16px;margin-top:14px;
+}
+.alerte-livraison h3{color:var(--rouge);font-size:16px;margin-bottom:6px}
+.alerte-livraison div{font-size:13.5px;color:#7F1D1D;margin-top:3px}
+
+.item{
+  background:var(--carte);border:1px solid var(--ligne);border-radius:var(--radius);padding:14px 16px;margin-top:10px;box-shadow:var(--ombre);
+}
+.item .ligne1{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.item .nom{font-weight:700;font-size:15.5px}
+.item .code{font-size:12px;font-weight:700;color:var(--orange);background:var(--orange-soft);padding:2px 9px;border-radius:99px;white-space:nowrap}
+.item .detail{font-size:13.5px;color:var(--encre-doux);margin-top:4px}
+.item .prix-ligne{font-size:13.5px;margin-top:6px}
+.item .reste{color:var(--rouge);font-weight:600}
+.statut{
+  display:inline-block;font-size:12px;font-weight:700;padding:3px 11px;border-radius:99px;margin-top:8px;
+}
+.st-attente{background:#FEF9C3;color:#A16207}
+.st-cours{background:var(--teal-soft);color:var(--teal-deep)}
+.st-pret{background:var(--orange-soft);color:#C2410C}
+.st-livre{background:var(--vert-soft);color:var(--vert)}
+
+.vide{
+  text-align:center;color:var(--encre-doux);padding:34px 16px;font-size:14px;
+  border:1.5px dashed var(--ligne);border-radius:var(--radius);margin-top:12px;background:#FBFAF7;
+}
+
+/* ===== Modale ===== */
+.voile{
+  position:fixed;inset:0;background:rgba(28,43,42,.5);z-index:100;
+  display:flex;align-items:flex-end;justify-content:center;
+}
+.modale{
+  background:var(--carte);border-radius:18px 18px 0 0;padding:20px 18px 30px;width:100%;max-width:560px;max-height:88vh;overflow-y:auto;
+}
+.modale h3{color:var(--teal-deep);font-size:19px;margin-bottom:4px}
+@media(min-width:600px){
+  .voile{align-items:center}
+  .modale{border-radius:18px}
+}
+
+/* ===== Écran bloqué / paiement ===== */
+.prix-carte{
+  border:2px solid var(--teal);border-radius:var(--radius);padding:18px;text-align:center;margin-top:16px;background:var(--teal-soft);
+}
+.prix-carte .gros{font-family:'Fraunces',serif;font-size:36px;font-weight:700;color:var(--teal-deep)}
+.prix-carte .par{font-size:13px;color:var(--encre-doux)}
+
+/* ===== Admin ===== */
+.admin-bandeau{background:var(--encre);color:#fff;padding:8px 16px;font-size:12.5px;font-weight:600;letter-spacing:1px;text-transform:uppercase}
+.tableau-admin{width:100%;border-collapse:collapse;margin-top:12px;background:var(--carte);border-radius:var(--radius);overflow:hidden;box-shadow:var(--ombre)}
+.tableau-admin th,.tableau-admin td{padding:10px 12px;text-align:left;font-size:13px;border-bottom:1px solid var(--ligne)}
+.tableau-admin th{background:#FBFAF7;font-weight:700;color:var(--encre-doux);font-size:11.5px;text-transform:uppercase;letter-spacing:.5px}
+
+footer.pied{
+  text-align:center;font-size:12px;color:var(--encre-doux);padding:20px 16px 30px;
+}
+@media (prefers-reduced-motion: reduce){
+  *{animation:none !important;transition:none !important}
+}
+</style>
+</head>
+<body>
+
+<div class="tape"></div>
+
+<!-- ============ ÉCRAN SETUP (config Firebase manquante) ============ -->
+<div id="screenSetup" class="fullpage hidden">
+  <div class="brand">Chez Djamil<small>Atelier SaaS</small></div>
+  <div class="carte">
+    <h2 style="color:var(--teal-deep);margin-bottom:8px">⚙️ Configuration requise</h2>
+    <p style="font-size:14px;color:var(--encre-doux)">
+      L'application n'est pas encore connectée à Firebase.<br><br>
+      1. Crée un projet sur <b>console.firebase.google.com</b><br>
+      2. Active <b>Authentication → Email/Password</b><br>
+      3. Active <b>Firestore Database</b><br>
+      4. Copie la config du projet et colle-la dans le fichier <b>index.html</b> à l'endroit marqué <b>FIREBASE_CONFIG</b><br><br>
+      Ensuite recharge cette page. 🚀
+    </p>
+  </div>
+</div>
+
+<!-- ============ ÉCRAN AUTH ============ -->
+<div id="screenAuth" class="fullpage hidden">
+  <div class="brand">Chez Djamil<small data-i18n="slogan">Gestion d'atelier de couture</small></div>
+  <div class="carte">
+    <div class="tabs-auth">
+      <button id="tabLogin" class="actif" data-i18n="connexion">Connexion</button>
+      <button id="tabSignup" data-i18n="creerCompte">Créer mon atelier</button>
+    </div>
+
+    <!-- Connexion -->
+    <div id="formLogin">
+      <label data-i18n="email">Email</label>
+      <input type="email" id="loginEmail" autocomplete="email" placeholder="vous@exemple.com">
+      <label data-i18n="mdp">Mot de passe</label>
+      <input type="password" id="loginPass" autocomplete="current-password" placeholder="••••••••">
+      <button class="btn btn-teal" id="btnLogin" data-i18n="seConnecter">Se connecter</button>
+      <button class="btn-sortir" id="btnOubli" style="width:100%;margin-top:10px" data-i18n="mdpOublie">Mot de passe oublié ?</button>
+    </div>
+
+    <!-- Inscription -->
+    <div id="formSignup" class="hidden">
+      <label data-i18n="nomAtelier">Nom de votre atelier</label>
+      <input type="text" id="suNom" placeholder="Atelier Fatou Couture">
+      <label data-i18n="pays">Pays</label>
+      <select id="suPays">
+        <option value="220|GMD">Gambie (+220, Dalasi)</option>
+        <option value="221|FCFA">Sénégal (+221, FCFA)</option>
+        <option value="225|FCFA">Côte d'Ivoire (+225, FCFA)</option>
+        <option value="223|FCFA">Mali (+223, FCFA)</option>
+        <option value="224|GNF">Guinée (+224, GNF)</option>
+        <option value="226|FCFA">Burkina Faso (+226, FCFA)</option>
+        <option value="228|FCFA">Togo (+228, FCFA)</option>
+        <option value="229|FCFA">Bénin (+229, FCFA)</option>
+        <option value="237|FCFA">Cameroun (+237, FCFA)</option>
+        <option value="233|GHS">Ghana (+233, Cedi)</option>
+        <option value="234|NGN">Nigeria (+234, Naira)</option>
+        <option value="212|MAD">Maroc (+212, Dirham)</option>
+        <option value="33|EUR">France (+33, Euro)</option>
+        <option value="44|GBP">Royaume-Uni (+44, Livre)</option>
+        <option value="1|USD">USA / Canada (+1, Dollar)</option>
+        <option value="autre|">Autre pays…</option>
+      </select>
+      <div id="zoneAutrePays" class="hidden">
+        <label data-i18n="indicatif">Indicatif téléphonique (sans +)</label>
+        <input type="text" id="suIndicatif" inputmode="numeric" placeholder="220">
+        <label data-i18n="devise">Devise</label>
+        <input type="text" id="suDevise" placeholder="D, FCFA, €…">
+      </div>
+      <label data-i18n="tel">Votre numéro WhatsApp (sans indicatif)</label>
+      <input type="tel" id="suTel" inputmode="numeric" placeholder="7XXXXXX">
+      <label data-i18n="email">Email</label>
+      <input type="email" id="suEmail" autocomplete="email" placeholder="vous@exemple.com">
+      <label data-i18n="mdp">Mot de passe (6 caractères min.)</label>
+      <input type="password" id="suPass" autocomplete="new-password" placeholder="••••••••">
+      <button class="btn btn-orange" id="btnSignup" data-i18n="demarrerEssai">Démarrer mes 14 jours gratuits</button>
+      <p style="font-size:12px;color:var(--encre-doux);margin-top:10px;text-align:center" data-i18n="essaiNote">
+        Essai gratuit 14 jours · puis 5 €/mois · sans engagement
+      </p>
+    </div>
+
+    <div id="authMsg"></div>
+  </div>
+</div>
+
+<!-- ============ ÉCRAN BLOQUÉ (essai fini / suspendu) ============ -->
+<div id="screenBlocked" class="fullpage hidden">
+  <div class="brand">Chez Djamil<small>Atelier SaaS</small></div>
+  <div class="carte">
+    <h2 style="color:var(--teal-deep)" id="blockedTitre">Votre essai gratuit est terminé</h2>
+    <p style="font-size:14px;color:var(--encre-doux);margin-top:8px" data-i18n="blockedTexte">
+      Vos données sont en sécurité. Activez votre abonnement pour continuer à gérer votre atelier.
+    </p>
+    <div class="prix-carte">
+      <div class="gros">5 €</div>
+      <div class="par" data-i18n="parMois">par mois · annulable à tout moment</div>
+    </div>
+    <a class="btn btn-wa" id="btnPayerWA" target="_blank" rel="noopener" data-i18n="payerWave">💬 Payer par Wave / Orange Money (WhatsApp)</a>
+    <button class="btn btn-ghost" disabled data-i18n="carteBientot">💳 Carte bancaire — bientôt disponible</button>
+    <button class="btn-sortir" id="btnBlockedSortir" style="width:100%;margin-top:16px" data-i18n="deconnexion">Déconnexion</button>
+  </div>
+</div>
+
+<!-- ============ APP PRINCIPALE ============ -->
+<div id="screenApp" class="hidden">
+  <header class="app">
+    <div class="header-haut">
+      <div class="brand" id="brandNom">Chez Djamil</div>
+      <div class="header-actions">
+        <span class="badge-essai hidden" id="badgePlan"></span>
+        <div class="lang-switch">
+          <button id="langFR">FR</button>
+          <button id="langEN">EN</button>
+        </div>
+      </div>
+    </div>
+    <nav class="ongles">
+      <button data-vue="apercu" class="actif" data-i18n="apercu">Aperçu</button>
+      <button data-vue="commandes" data-i18n="commandes">Commandes</button>
+      <button data-vue="clients" data-i18n="clients">Clients</button>
+      <button data-vue="reglages" data-i18n="reglages">Réglages</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- ---- Aperçu ---- -->
+    <div id="vueApercu">
+      <div id="zoneAlerte"></div>
+      <div class="grille-stats">
+        <div class="stat"><div class="num" id="statCommandes">0</div><div class="lbl" data-i18n="enCours">En cours</div></div>
+        <div class="stat"><div class="num" id="statPretes">0</div><div class="lbl" data-i18n="pretes">Prêtes</div></div>
+        <div class="stat"><div class="num" id="statClients">0</div><div class="lbl" data-i18n="clients">Clients</div></div>
+        <div class="stat"><div class="num" id="statRecettes">0</div><div class="lbl" data-i18n="recettesMois">Reçu ce mois</div></div>
+      </div>
+      <h2 class="section-titre" data-i18n="livraisonsProches">Livraisons à venir</h2>
+      <div id="listeProches"></div>
+    </div>
+
+    <!-- ---- Commandes ---- -->
+    <div id="vueCommandes" class="hidden">
+      <button class="btn btn-orange" id="btnNewCmd" data-i18n="nouvelleCommande">+ Nouvelle commande</button>
+      <input type="text" id="rechCmd" style="margin-top:12px" placeholder="🔍 Rechercher (nom, code…)">
+      <div id="listeCommandes"></div>
+    </div>
+
+    <!-- ---- Clients ---- -->
+    <div id="vueClients" class="hidden">
+      <button class="btn btn-teal" id="btnNewClient" data-i18n="nouveauClient">+ Nouveau client</button>
+      <input type="text" id="rechClient" style="margin-top:12px" placeholder="🔍 Rechercher un client">
+      <div id="listeClients"></div>
+    </div>
+
+    <!-- ---- Réglages ---- -->
+    <div id="vueReglages" class="hidden">
+      <div class="carte" style="max-width:none">
+        <h3 style="color:var(--teal-deep)" data-i18n="monAtelier">Mon atelier</h3>
+        <label data-i18n="nomAtelier">Nom de votre atelier</label>
+        <input type="text" id="regNom">
+        <label data-i18n="indicatif">Indicatif téléphonique (sans +)</label>
+        <input type="text" id="regIndicatif" inputmode="numeric">
+        <label data-i18n="devise">Devise</label>
+        <input type="text" id="regDevise">
+        <label data-i18n="langueMessages">Langue des messages WhatsApp clients</label>
+        <select id="regLangueMsg">
+          <option value="fr">Français</option>
+          <option value="en">English</option>
+        </select>
+        <button class="btn btn-teal" id="btnSaveReglages" data-i18n="enregistrer">Enregistrer</button>
+        <div id="regMsg"></div>
+      </div>
+      <div class="carte" style="max-width:none;margin-top:14px">
+        <h3 style="color:var(--teal-deep)" data-i18n="abonnement">Abonnement</h3>
+        <p style="font-size:14px;color:var(--encre-doux);margin-top:6px" id="txtAbonnement"></p>
+        <a class="btn btn-wa btn-mini" id="btnAboWA" target="_blank" rel="noopener" data-i18n="contactSupport">💬 Contacter le support</a>
+      </div>
+      <button class="btn btn-ghost" id="btnLogout" data-i18n="deconnexion">Déconnexion</button>
+    </div>
+  </main>
+  <footer class="pied">Chez Djamil · chezdjamil.com</footer>
+</div>
+
+<!-- ============ ADMIN ============ -->
+<div id="screenAdmin" class="hidden">
+  <div class="admin-bandeau">👑 Admin — Chez Djamil SaaS</div>
+  <main>
+    <div class="grille-stats">
+      <div class="stat"><div class="num" id="admTotal">0</div><div class="lbl">Ateliers</div></div>
+      <div class="stat"><div class="num" id="admActifs">0</div><div class="lbl">Abonnés actifs</div></div>
+      <div class="stat"><div class="num" id="admEssai">0</div><div class="lbl">En essai</div></div>
+      <div class="stat"><div class="num" id="admExpires">0</div><div class="lbl">Expirés</div></div>
+    </div>
+    <h2 class="section-titre">Tous les ateliers</h2>
+    <div style="overflow-x:auto">
+      <table class="tableau-admin">
+        <thead><tr><th>Atelier</th><th>Email</th><th>Plan</th><th>Fin essai</th><th>Action</th></tr></thead>
+        <tbody id="admListe"></tbody>
+      </table>
+    </div>
+    <button class="btn btn-ghost" id="btnAdmLogout" style="max-width:300px;margin:20px auto">Déconnexion</button>
+  </main>
+</div>
+
+<!-- ============ MODALE générique ============ -->
+<div id="voile" class="voile hidden">
+  <div class="modale" id="modaleContenu"></div>
+</div>
+
+<script>
+/* ==================================================================
+   FIREBASE_CONFIG — OK ✅
+   ================================================================== */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBpZi6RN33hlQkMpp8n-XMFPVyYknQtsTg",
+  authDomain: "chez-djamil-saas.firebaseapp.com",
+  projectId: "chez-djamil-saas",
+  storageBucket: "chez-djamil-saas.firebasestorage.app",
+  messagingSenderId: "247792907548",
+  appId: "1:247792907548:web:c506939ee6d89822c4b6d9"
+};
+
+// Initialiser Firebase
+firebase.initializeApp(FIREBASE_CONFIG);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+// Dictionnaire de traduction FR/EN
+const i18n = {
+  fr: {
+    slogan: "Gestion d'atelier de couture",
+    connexion: "Connexion",
+    creerCompte: "Créer mon atelier",
+    email: "Email",
+    mdp: "Mot de passe",
+    seConnecter: "Se connecter",
+    mdpOublie: "Mot de passe oublié ?",
+    nomAtelier: "Nom de votre atelier",
+    pays: "Pays",
+    indicatif: "Indicatif téléphonique (sans +)",
+    devise: "Devise",
+    tel: "Votre numéro WhatsApp (sans indicatif)",
+    demarrerEssai: "Démarrer mes 14 jours gratuits",
+    essaiNote: "Essai gratuit 14 jours · puis 5 €/mois · sans engagement",
+    blockedTexte: "Vos données sont en sécurité. Activez votre abonnement pour continuer à gérer votre atelier.",
+    parMois: "par mois · annulable à tout moment",
+    payerWave: "💬 Payer par Wave / Orange Money (WhatsApp)",
+    carteBientot: "💳 Carte bancaire — bientôt disponible",
+    deconnexion: "Déconnexion",
+    apercu: "Aperçu",
+    commandes: "Commandes",
+    clients: "Clients",
+    reglages: "Réglages",
+    enCours: "En cours",
+    pretes: "Prêtes",
+    recettesMois: "Reçu ce mois",
+    livraisonsProches: "Livraisons à venir",
+    nouvelleCommande: "+ Nouvelle commande",
+    nouveauClient: "+ Nouveau client",
+    monAtelier: "Mon atelier",
+    langueMessages: "Langue des messages WhatsApp clients",
+    enregistrer: "Enregistrer",
+    abonnement: "Abonnement",
+    contactSupport: "💬 Contacter le support",
+  },
+  en: {
+    slogan: "Tailoring management software",
+    connexion: "Login",
+    creerCompte: "Create my atelier",
+    email: "Email",
+    mdp: "Password",
+    seConnecter: "Login",
+    mdpOublie: "Forgot password?",
+    nomAtelier: "Your atelier name",
+    pays: "Country",
+    indicatif: "Phone indicator (without +)",
+    devise: "Currency",
+    tel: "Your WhatsApp number (without indicator)",
+    demarrerEssai: "Start my 14 free days",
+    essaiNote: "14-day free trial · then 5€/month · cancel anytime",
+    blockedTexte: "Your data is safe. Activate your subscription to continue managing your atelier.",
+    parMois: "per month · cancel anytime",
+    payerWave: "💬 Pay by Wave / Orange Money (WhatsApp)",
+    carteBientot: "💳 Credit card — coming soon",
+    deconnexion: "Logout",
+    apercu: "Overview",
+    commandes: "Orders",
+    clients: "Clients",
+    reglages: "Settings",
+    enCours: "In progress",
+    pretes: "Ready",
+    recettesMois: "This month",
+    livraisonsProches: "Upcoming deliveries",
+    nouvelleCommande: "+ New order",
+    nouveauClient: "+ New client",
+    monAtelier: "My atelier",
+    langueMessages: "Language for WhatsApp client messages",
+    enregistrer: "Save",
+    abonnement: "Subscription",
+    contactSupport: "💬 Contact support",
+  }
+};
+
+let currentLang = localStorage.getItem('lang') || 'fr';
+
+// Appliquer traductions
+function applyI18n() {
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    el.textContent = i18n[currentLang][key] || key;
+  });
+}
+
+// Changer langue
+document.getElementById('langFR').addEventListener('click', () => {
+  currentLang = 'fr';
+  localStorage.setItem('lang', 'fr');
+  document.getElementById('langFR').classList.add('actif');
+  document.getElementById('langEN').classList.remove('actif');
+  applyI18n();
+});
+
+document.getElementById('langEN').addEventListener('click', () => {
+  currentLang = 'en';
+  localStorage.setItem('lang', 'en');
+  document.getElementById('langEN').classList.add('actif');
+  document.getElementById('langFR').classList.remove('actif');
+  applyI18n();
+});
+
+// État initial
+if (currentLang === 'en') {
+  document.getElementById('langEN').classList.add('actif');
+  document.getElementById('langFR').classList.remove('actif');
+}
+
+applyI18n();
+
+// ===== AUTH =====
+auth.onAuthStateChanged(async user => {
+  const screenSetup = document.getElementById('screenSetup');
+  const screenAuth = document.getElementById('screenAuth');
+  const screenApp = document.getElementById('screenApp');
+  const screenBlocked = document.getElementById('screenBlocked');
+  const screenAdmin = document.getElementById('screenAdmin');
+
+  screenSetup.classList.add('hidden');
+  screenAuth.classList.add('hidden');
+  screenApp.classList.add('hidden');
+  screenBlocked.classList.add('hidden');
+  screenAdmin.classList.add('hidden');
+
+  if (!user) {
+    screenAuth.classList.remove('hidden');
+    return;
+  }
+
+  // Check if user is admin
+  const docUser = await db.collection('ateliers').doc(user.uid).get();
+  if (docUser.exists && docUser.data().isAdmin) {
+    screenAdmin.classList.remove('hidden');
+    loadAdmin();
+    return;
+  }
+
+  // Check subscription status
+  if (docUser.exists) {
+    const atel = docUser.data();
+    const now = new Date();
+    const finEssai = atel.finEssai ? new Date(atel.finEssai) : null;
+
+    if (atel.plan === 'essai' && finEssai && now > finEssai) {
+      screenBlocked.classList.remove('hidden');
+      document.getElementById('btnBlockedSortir').addEventListener('click', () => auth.signOut());
+      return;
+    }
+  }
+
+  screenApp.classList.remove('hidden');
+  loadApp(user);
+});
+
+// Tabs auth
+document.getElementById('tabLogin').addEventListener('click', () => {
+  document.getElementById('formLogin').classList.remove('hidden');
+  document.getElementById('formSignup').classList.add('hidden');
+  document.getElementById('tabLogin').classList.add('actif');
+  document.getElementById('tabSignup').classList.remove('actif');
+});
+
+document.getElementById('tabSignup').addEventListener('click', () => {
+  document.getElementById('formSignup').classList.remove('hidden');
+  document.getElementById('formLogin').classList.add('hidden');
+  document.getElementById('tabSignup').classList.add('actif');
+  document.getElementById('tabLogin').classList.remove('actif');
+});
+
+// Login
+document.getElementById('btnLogin').addEventListener('click', async () => {
+  const email = document.getElementById('loginEmail').value;
+  const pass = document.getElementById('loginPass').value;
+  try {
+    await auth.signInWithEmailAndPassword(email, pass);
+  } catch (e) {
+    document.getElementById('authMsg').innerHTML = `<div class="msg-erreur">${e.message}</div>`;
+  }
+});
+
+// Signup
+document.getElementById('suPays').addEventListener('change', (e) => {
+  if (e.target.value === 'autre|') {
+    document.getElementById('zoneAutrePays').classList.remove('hidden');
+  } else {
+    document.getElementById('zoneAutrePays').classList.add('hidden');
+  }
+});
+
+document.getElementById('btnSignup').addEventListener('click', async () => {
+  const nom = document.getElementById('suNom').value;
+  const email = document.getElementById('suEmail').value;
+  const pass = document.getElementById('suPass').value;
+  const pays = document.getElementById('suPays').value;
+  const tel = document.getElementById('suTel').value;
+
+  if (!nom || !email || !pass || !tel) {
+    document.getElementById('authMsg').innerHTML = '<div class="msg-erreur">Tous les champs sont obligatoires</div>';
+    return;
+  }
+
+  try {
+    const cred = await auth.createUserWithEmailAndPassword(email, pass);
+    
+    const [indicatif, devise] = pays === 'autre|' 
+      ? [document.getElementById('suIndicatif').value, document.getElementById('suDevise').value]
+      : pays.split('|');
+
+    const atelierData = {
+      nom,
+      email,
+      tel,
+      indicatif,
+      devise,
+      plan: 'essai',
+      finEssai: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+      dateCreation: new Date().toISOString(),
+      isAdmin: false
+    };
+
+    await db.collection('ateliers').doc(cred.user.uid).set(atelierData);
+    document.getElementById('authMsg').innerHTML = '<div class="msg-ok">Bienvenue! Accès en cours…</div>';
+  } catch (e) {
+    document.getElementById('authMsg').innerHTML = `<div class="msg-erreur">${e.message}</div>`;
+  }
+});
+
+// App logic
+async function loadApp(user) {
+  const atelierDoc = await db.collection('ateliers').doc(user.uid).get();
+  const atel = atelierDoc.data();
+
+  document.getElementById('brandNom').textContent = atel.nom || 'Chez Djamil';
+  
+  const badgePlan = document.getElementById('badgePlan');
+  if (atel.plan === 'essai') {
+    const finEssai = new Date(atel.finEssai);
+    const jours = Math.ceil((finEssai - new Date()) / (24 * 60 * 60 * 1000));
+    badgePlan.textContent = `Essai gratuit (${jours} j)`;
+    badgePlan.classList.remove('hidden');
+  } else {
+    badgePlan.classList.add('hidden');
+  }
+
+  // Changer vues
+  document.querySelectorAll('nav.ongles button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('nav.ongles button').forEach(b => b.classList.remove('actif'));
+      btn.classList.add('actif');
+      
+      const vue = btn.getAttribute('data-vue');
+      document.querySelectorAll('main > div').forEach(v => v.classList.add('hidden'));
+      document.getElementById('vue' + vue.charAt(0).toUpperCase() + vue.slice(1)).classList.remove('hidden');
+    });
+  });
+
+  // Réglages
+  document.getElementById('regNom').value = atel.nom || '';
+  document.getElementById('regIndicatif').value = atel.indicatif || '';
+  document.getElementById('regDevise').value = atel.devise || '';
+  document.getElementById('regLangueMsg').value = atel.langueMsg || 'fr';
+
+  document.getElementById('btnSaveReglages').addEventListener('click', async () => {
+    await db.collection('ateliers').doc(user.uid).update({
+      nom: document.getElementById('regNom').value,
+      indicatif: document.getElementById('regIndicatif').value,
+      devise: document.getElementById('regDevise').value,
+      langueMsg: document.getElementById('regLangueMsg').value
+    });
+    document.getElementById('regMsg').innerHTML = '<div class="msg-ok">Paramètres enregistrés ✓</div>';
+    setTimeout(() => { document.getElementById('regMsg').innerHTML = ''; }, 2000);
+  });
+
+  document.getElementById('txtAbonnement').textContent = atel.plan === 'essai' 
+    ? `Essai gratuit jusqu'au ${new Date(atel.finEssai).toLocaleDateString('fr-FR')}`
+    : 'Abonnement actif';
+
+  document.getElementById('btnLogout').addEventListener('click', () => auth.signOut());
+}
+
+async function loadAdmin() {
+  const ateliersSnap = await db.collection('ateliers').get();
+  const tableau = document.getElementById('admListe');
+  tableau.innerHTML = '';
+
+  let total = 0, actifs = 0, essai = 0, expires = 0;
+
+  ateliersSnap.forEach(doc => {
+    const atel = doc.data();
+    total++;
+    
+    const finEssai = new Date(atel.finEssai);
+    const now = new Date();
+    if (atel.plan === 'essai' && now > finEssai) {
+      expires++;
+    } else if (atel.plan === 'essai') {
+      essai++;
+    } else {
+      actifs++;
+    }
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${atel.nom}</td>
+      <td>${atel.email}</td>
+      <td>${atel.plan}</td>
+      <td>${finEssai.toLocaleDateString('fr-FR')}</td>
+      <td><button class="btn-mini btn-ghost" onclick="alert('Action: ${atel.email}')">Détails</button></td>
+    `;
+    tableau.appendChild(tr);
+  });
+
+  document.getElementById('admTotal').textContent = total;
+  document.getElementById('admActifs').textContent = actifs;
+  document.getElementById('admEssai').textContent = essai;
+  document.getElementById('admExpires').textContent = expires;
+
+  document.getElementById('btnAdmLogout').addEventListener('click', () => auth.signOut());
+}
+</script>
+</body>
+</html>
